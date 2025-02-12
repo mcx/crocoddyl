@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.2.0] - 1980-01-01
+
+* Changed return policy in std::vector of Eigen's vector and matrices to be compliant with Pinocchio in https://github.com/loco-3d/crocoddyl/pull/1338
+* Prevent users to improperly setting residual references in https://github.com/loco-3d/crocoddyl/pull/1332
+* Fixed the inequality constraints' feasibility computation by incorporating bounds into the calculation in https://github.com/loco-3d/crocoddyl/pull/1307
+* Improved the action factory used for unit testing in https://github.com/loco-3d/crocoddyl/pull/1300
+* Ignore ruff issues in ipython notebook files in https://github.com/loco-3d/crocoddyl/pull/1297
+* Improved efficiency for computing impulse-dynamics derivatives in https://github.com/loco-3d/crocoddyl/pull/1294
+* Fixed bug of wrench cone fields not being updated with setters in https://github.com/loco-3d/crocoddyl/pull/1274
+* Replaced parent by parentJoint (which was introduced in Pinocchio 3) in https://github.com/loco-3d/crocoddyl/pull/1271
+* Introduced the notion of terminal dimension, residuals and constraints in https://github.com/loco-3d/crocoddyl/pull/1269
+* General clean ups about std::size_t in https://github.com/loco-3d/crocoddyl/pull/1265
+* Fixed issues in LQR extensions in https://github.com/loco-3d/crocoddyl/pull/1263
+* Computed dynamic feasibility everytime in https://github.com/loco-3d/crocoddyl/pull/1262
+* Extend LQR actions in https://github.com/loco-3d/crocoddyl/pull/1261
+* Print log with grad absolute + updated logs with Pinocchio 3 in https://github.com/loco-3d/crocoddyl/pull/1260
+
+## [2.1.0] - 2024-05-31
+
+* Updated black + isort + flake8 to ruff in https://github.com/loco-3d/crocoddyl/pull/1256
+* Exported version for Python in https://github.com/loco-3d/crocoddyl/pull/1254
+* Added pinocchio 3 preliminary support in https://github.com/loco-3d/crocoddyl/pull/1253
+* Updated CMake packaging in https://github.com/loco-3d/crocoddyl/pull/1249
+* Fixed ruff reported error in https://github.com/loco-3d/crocoddyl/pull/1248
+* Fixed yapf reported errors in https://github.com/loco-3d/crocoddyl/pull/1238
+* Tested Python stubs in Conda CI in https://github.com/loco-3d/crocoddyl/pull/1228
+* Fixed Rviz display in https://github.com/loco-3d/crocoddyl/pull/1227
+* Improved CI, updated cmake and fixed launch file in https://github.com/loco-3d/crocoddyl/pull/1220
+* Introduced a Rviz display in https://github.com/loco-3d/crocoddyl/pull/1216
+* Enabled display of thrust and simplied displayers code in https://github.com/loco-3d/crocoddyl/pull/1215
+* Introduced floating base thruster actuation model in https://github.com/loco-3d/crocoddyl/pull/1213
+* Fixed quadruped and biped examples in https://github.com/loco-3d/crocoddyl/pull/1208
+* Fixed terminal computation in Python models in https://github.com/loco-3d/crocoddyl/pull/1204
+* Fixed handling of unbounded values for `ActivationBounds` in https://github.com/loco-3d/crocoddyl/pull/1191
+
 ## [2.0.2] - 2023-12-07
 
 * Added nu, ng, and nh setters for Python bindings in https://github.com/loco-3d/crocoddyl/pull/1192
@@ -278,7 +313,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Initial release
 
-[Unreleased]: https://github.com/loco-3d/crocoddyl/compare/v2.0.2...HEAD
+[Unreleased]: https://github.com/loco-3d/crocoddyl/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/loco-3d/crocoddyl/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/loco-3d/crocoddyl/compare/v2.0.2...v2.1.0
 [2.0.2]: https://github.com/loco-3d/crocoddyl/compare/v2.0.1...v2.0.2
 [2.0.1]: https://github.com/loco-3d/crocoddyl/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/loco-3d/crocoddyl/compare/v1.9.0...v2.0.0

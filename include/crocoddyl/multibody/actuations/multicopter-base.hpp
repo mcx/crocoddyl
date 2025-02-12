@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BSD 3-Clause License
 //
-// Copyright (C) 2019-2022, LAAS-CNRS, IRI: CSIC-UPC, University of Edinburgh
+// Copyright (C) 2019-2024, LAAS-CNRS, IRI: CSIC-UPC, University of Edinburgh
 // Copyright note valid unless otherwise stated in individual files.
 // All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
@@ -59,25 +59,10 @@ class ActuationModelMultiCopterBaseTpl
    * @param[in] tau_f  Matrix that maps the thrust of each propeller to the net
    * force and torque
    */
-  ActuationModelMultiCopterBaseTpl(boost::shared_ptr<StateMultibody> state,
-                                   const Eigen::Ref<const Matrix6xs>& tau_f)
-      : Base(state, state->get_nv() - 6 + tau_f.cols()),
-        n_rotors_(tau_f.cols()) {
-    pinocchio::JointModelFreeFlyerTpl<Scalar> ff_joint;
-    if (state->get_pinocchio()->joints[1].shortname() != ff_joint.shortname()) {
-      throw_pretty("Invalid argument: "
-                   << "the first joint has to be free-flyer");
-    }
-
-    tau_f_ = MatrixXs::Zero(state_->get_nv(), nu_);
-    tau_f_.block(0, 0, 6, n_rotors_) = tau_f;
-    if (nu_ > n_rotors_) {
-      tau_f_.bottomRightCorner(nu_ - n_rotors_, nu_ - n_rotors_)
-          .diagonal()
-          .setOnes();
-    }
-    Mtau_ = pseudoInverse(MatrixXs(tau_f));
-  }
+  DEPRECATED("Use constructor ActuationModelFloatingBaseThrustersTpl",
+             ActuationModelMultiCopterBaseTpl(
+                 boost::shared_ptr<StateMultibody> state,
+                 const Eigen::Ref<const Matrix6xs>& tau_f));
 
   DEPRECATED("Use constructor without n_rotors",
              ActuationModelMultiCopterBaseTpl(
@@ -90,9 +75,9 @@ class ActuationModelMultiCopterBaseTpl
                     const Eigen::Ref<const VectorXs>&,
                     const Eigen::Ref<const VectorXs>& u) {
     if (static_cast<std::size_t>(u.size()) != nu_) {
-      throw_pretty("Invalid argument: "
-                   << "u has wrong dimension (it should be " +
-                          std::to_string(nu_) + ")");
+      throw_pretty(
+          "Invalid argument: " << "u has wrong dimension (it should be " +
+                                      std::to_string(nu_) + ")");
     }
 
     data->tau.noalias() = tau_f_ * u;
@@ -163,13 +148,37 @@ class ActuationModelMultiCopterBaseTpl
 
 template <typename Scalar>
 ActuationModelMultiCopterBaseTpl<Scalar>::ActuationModelMultiCopterBaseTpl(
+    boost::shared_ptr<StateMultibody> state,
+    const Eigen::Ref<const Matrix6xs>& tau_f)
+    : Base(state, state->get_nv() - 6 + tau_f.cols()), n_rotors_(tau_f.cols()) {
+  pinocchio::JointModelFreeFlyerTpl<Scalar> ff_joint;
+  if (state->get_pinocchio()->joints[1].shortname() != ff_joint.shortname()) {
+    throw_pretty(
+        "Invalid argument: " << "the first joint has to be free-flyer");
+  }
+
+  tau_f_ = MatrixXs::Zero(state_->get_nv(), nu_);
+  tau_f_.block(0, 0, 6, n_rotors_) = tau_f;
+  if (nu_ > n_rotors_) {
+    tau_f_.bottomRightCorner(nu_ - n_rotors_, nu_ - n_rotors_)
+        .diagonal()
+        .setOnes();
+  }
+  Mtau_ = pseudoInverse(MatrixXs(tau_f));
+  std::cerr << "Deprecated ActuationModelMultiCopterBase: Use "
+               "ActuationModelFloatingBaseThrusters"
+            << std::endl;
+}
+
+template <typename Scalar>
+ActuationModelMultiCopterBaseTpl<Scalar>::ActuationModelMultiCopterBaseTpl(
     boost::shared_ptr<StateMultibody> state, const std::size_t n_rotors,
     const Eigen::Ref<const Matrix6xs>& tau_f)
     : Base(state, state->get_nv() - 6 + n_rotors), n_rotors_(n_rotors) {
   pinocchio::JointModelFreeFlyerTpl<Scalar> ff_joint;
   if (state->get_pinocchio()->joints[1].shortname() != ff_joint.shortname()) {
-    throw_pretty("Invalid argument: "
-                 << "the first joint has to be free-flyer");
+    throw_pretty(
+        "Invalid argument: " << "the first joint has to be free-flyer");
   }
 
   tau_f_ = MatrixXs::Zero(state_->get_nv(), nu_);

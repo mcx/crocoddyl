@@ -1,7 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BSD 3-Clause License
 //
-// Copyright (C) 2019-2022, LAAS-CNRS, University of Edinburgh
+// Copyright (C) 2019-2024, LAAS-CNRS, University of Edinburgh,
+//                          Heriot-Watt University
 // Copyright note valid unless otherwise stated in individual files.
 // All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
@@ -19,64 +20,90 @@ namespace python {
 class CostModelAbstract_wrap : public CostModelAbstract,
                                public bp::wrapper<CostModelAbstract> {
  public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  using CostModelAbstract::nu_;
+  using CostModelAbstract::unone_;
+
   CostModelAbstract_wrap(boost::shared_ptr<StateAbstract> state,
                          boost::shared_ptr<ActivationModelAbstract> activation,
                          boost::shared_ptr<ResidualModelAbstract> residual)
-      : CostModelAbstract(state, activation, residual) {}
+      : CostModelAbstract(state, activation, residual) {
+    unone_ = NAN * MathBase::VectorXs::Ones(nu_);
+  }
 
   CostModelAbstract_wrap(boost::shared_ptr<StateAbstract> state,
                          boost::shared_ptr<ActivationModelAbstract> activation,
                          const std::size_t nu)
-      : CostModelAbstract(state, activation, nu) {}
+      : CostModelAbstract(state, activation, nu) {
+    unone_ = NAN * MathBase::VectorXs::Ones(nu);
+  }
 
   CostModelAbstract_wrap(boost::shared_ptr<StateAbstract> state,
                          boost::shared_ptr<ActivationModelAbstract> activation)
-      : CostModelAbstract(state, activation) {}
+      : CostModelAbstract(state, activation) {
+    unone_ = NAN * MathBase::VectorXs::Ones(nu_);
+  }
 
   CostModelAbstract_wrap(boost::shared_ptr<StateAbstract> state,
                          boost::shared_ptr<ResidualModelAbstract> residual)
-      : CostModelAbstract(state, residual) {}
+      : CostModelAbstract(state, residual) {
+    unone_ = NAN * MathBase::VectorXs::Ones(nu_);
+  }
 
   CostModelAbstract_wrap(boost::shared_ptr<StateAbstract> state,
                          const std::size_t nr, const std::size_t nu)
-      : CostModelAbstract(state, nr, nu), bp::wrapper<CostModelAbstract>() {}
+      : CostModelAbstract(state, nr, nu), bp::wrapper<CostModelAbstract>() {
+    unone_ = NAN * MathBase::VectorXs::Ones(nu);
+  }
 
   CostModelAbstract_wrap(boost::shared_ptr<StateAbstract> state,
                          const std::size_t nr)
-      : CostModelAbstract(state, nr), bp::wrapper<CostModelAbstract>() {}
+      : CostModelAbstract(state, nr), bp::wrapper<CostModelAbstract>() {
+    unone_ = NAN * MathBase::VectorXs::Ones(nu_);
+  }
 
   void calc(const boost::shared_ptr<CostDataAbstract>& data,
             const Eigen::Ref<const Eigen::VectorXd>& x,
             const Eigen::Ref<const Eigen::VectorXd>& u) {
     if (static_cast<std::size_t>(x.size()) != state_->get_nx()) {
-      throw_pretty("Invalid argument: "
-                   << "x has wrong dimension (it should be " +
-                          std::to_string(state_->get_nx()) + ")");
+      throw_pretty(
+          "Invalid argument: " << "x has wrong dimension (it should be " +
+                                      std::to_string(state_->get_nx()) + ")");
     }
     if (static_cast<std::size_t>(u.size()) != nu_) {
-      throw_pretty("Invalid argument: "
-                   << "u has wrong dimension (it should be " +
-                          std::to_string(nu_) + ")");
+      throw_pretty(
+          "Invalid argument: " << "u has wrong dimension (it should be " +
+                                      std::to_string(nu_) + ")");
     }
-    return bp::call<void>(this->get_override("calc").ptr(), data,
-                          (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    if (std::isnan(u.lpNorm<Eigen::Infinity>())) {
+      return bp::call<void>(this->get_override("calc").ptr(), data,
+                            (Eigen::VectorXd)x);
+    } else {
+      return bp::call<void>(this->get_override("calc").ptr(), data,
+                            (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    }
   }
 
   void calcDiff(const boost::shared_ptr<CostDataAbstract>& data,
                 const Eigen::Ref<const Eigen::VectorXd>& x,
                 const Eigen::Ref<const Eigen::VectorXd>& u) {
     if (static_cast<std::size_t>(x.size()) != state_->get_nx()) {
-      throw_pretty("Invalid argument: "
-                   << "x has wrong dimension (it should be " +
-                          std::to_string(state_->get_nx()) + ")");
+      throw_pretty(
+          "Invalid argument: " << "x has wrong dimension (it should be " +
+                                      std::to_string(state_->get_nx()) + ")");
     }
     if (static_cast<std::size_t>(u.size()) != nu_) {
-      throw_pretty("Invalid argument: "
-                   << "u has wrong dimension (it should be " +
-                          std::to_string(nu_) + ")");
+      throw_pretty(
+          "Invalid argument: " << "u has wrong dimension (it should be " +
+                                      std::to_string(nu_) + ")");
     }
-    return bp::call<void>(this->get_override("calcDiff").ptr(), data,
-                          (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    if (std::isnan(u.lpNorm<Eigen::Infinity>())) {
+      return bp::call<void>(this->get_override("calcDiff").ptr(), data,
+                            (Eigen::VectorXd)x);
+    } else {
+      return bp::call<void>(this->get_override("calcDiff").ptr(), data,
+                            (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    }
   }
 
   boost::shared_ptr<CostDataAbstract> createData(

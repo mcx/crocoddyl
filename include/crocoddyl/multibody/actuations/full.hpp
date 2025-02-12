@@ -43,8 +43,8 @@ class ActuationModelFullTpl : public ActuationModelAbstractTpl<_Scalar> {
    * @param[in] state  State of the dynamical system
    */
   explicit ActuationModelFullTpl(boost::shared_ptr<StateAbstract> state)
-      : Base(state, state->get_nv()){};
-  virtual ~ActuationModelFullTpl(){};
+      : Base(state, state->get_nv()) {};
+  virtual ~ActuationModelFullTpl() {};
 
   /**
    * @brief Compute the full actuation
@@ -57,9 +57,9 @@ class ActuationModelFullTpl : public ActuationModelAbstractTpl<_Scalar> {
                     const Eigen::Ref<const VectorXs>& /*x*/,
                     const Eigen::Ref<const VectorXs>& u) {
     if (static_cast<std::size_t>(u.size()) != nu_) {
-      throw_pretty("Invalid argument: "
-                   << "u has wrong dimension (it should be " +
-                          std::to_string(nu_) + ")");
+      throw_pretty(
+          "Invalid argument: " << "u has wrong dimension (it should be " +
+                                      std::to_string(nu_) + ")");
     }
     data->tau = u;
   };
@@ -91,9 +91,9 @@ class ActuationModelFullTpl : public ActuationModelAbstractTpl<_Scalar> {
                         const Eigen::Ref<const VectorXs>&,
                         const Eigen::Ref<const VectorXs>& tau) {
     if (static_cast<std::size_t>(tau.size()) != nu_) {
-      throw_pretty("Invalid argument: "
-                   << "tau has wrong dimension (it should be " +
-                          std::to_string(nu_) + ")");
+      throw_pretty(
+          "Invalid argument: " << "tau has wrong dimension (it should be " +
+                                      std::to_string(nu_) + ")");
     }
     data->u = tau;
   }

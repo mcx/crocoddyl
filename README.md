@@ -7,7 +7,10 @@
 <a href="https://gepettoweb.laas.fr/doc/loco-3d/crocoddyl/master/doxygen-html/"><img src="https://img.shields.io/badge/docs-online-brightgreen" alt="Documentation"/></a>
 <a href="https://gepgitlab.laas.fr/loco-3d/crocoddyl/pipelines?ref=devel"><img src="https://gepgitlab.laas.fr/loco-3d/crocoddyl/badges/devel/pipeline.svg">
 <a href="https://gepettoweb.laas.fr/doc/loco-3d/crocoddyl/devel/coverage/"><img src="https://gepgitlab.laas.fr/loco-3d/crocoddyl/badges/devel/coverage.svg">
+<a href="https://repology.org/project/crocoddyl/versions"><img src="https://repology.org/badge/version-for-repo/aur/crocoddyl.svg" alt="AUR package"></a>
 <a href="https://anaconda.org/conda-forge/crocoddyl"><img src="https://img.shields.io/conda/vn/conda-forge/crocoddyl.svg">
+<a href="https://repology.org/project/crocoddyl/versions"><img src="https://repology.org/badge/version-for-repo/nix_stable_24_05/crocoddyl.svg" alt="nixpkgs stable 24.05 package"></a>
+<a href="https://repology.org/project/crocoddyl/versions"><img src="https://repology.org/badge/version-for-repo/nix_unstable/crocoddyl.svg" alt="nixpkgs unstable package"></a>
 <a href="https://pypi.org/project/crocoddyl/"><img src="https://badge.fury.io/py/crocoddyl.svg">
 <a href="https://anaconda.org/conda-forge/crocoddyl"><img src="https://anaconda.org/conda-forge/crocoddyl/badges/downloads.svg">
 <a href="https://tldrlegal.com/license/bsd-3-clause-license-%28revised%29#fulltext"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg?style=flat">
@@ -52,6 +55,13 @@ If you want to learn more about **Crocoddyl** and its solvers, we suggest readin
 
 **Crocoddyl** can be easily installed on various Linux (Ubuntu, Fedora, etc.) and Unix distributions (Mac OS X, BSD, etc.). Below, there are different ways to install Crocoddyl.
 
+### <img src="https://aur.archlinux.org/static/images/favicon.ico" height="18" /> On ArchLinux
+
+With your favorite AUR helper, eg. paru:
+```bash
+    paru -Syu crocoddyl
+```
+
 ### :dragon: From <img src="https://s3.amazonaws.com/conda-dev/conda_logo.svg" height="18">
 
 Just run the following command in the terminal:
@@ -59,6 +69,16 @@ Just run the following command in the terminal:
    conda install crocoddyl -c conda-forge
 ```
 Conda installation supports [![conda install](https://anaconda.org/conda-forge/crocoddyl/badges/platforms.svg)](https://anaconda.org/conda-forge/crocoddyl).
+
+### <img src="https://avatars.githubusercontent.com/u/487568" height="18" /> From Nix
+
+`crocoddyl` & `python3Packages.crocoddyl` are available in [nixpkgs](https://github.com/NixOS/nixpkgs/).
+
+This repository is also a flake, so you may:
+- run a python shell with crocoddyl: `nix run github:loco-3d/crocoddyl`
+- use it in your own flake: `crocoddyl.url = "github:loco-3d/crocoddyl";`
+
+The build cache use by CI and developers is [gepetto.cachix.org](https://app.cachix.org/cache/gepetto)
 
 ### :snake: From <img src="https://res.cloudinary.com/practicaldev/image/fetch/s--4-K6Sjm4--/c_imagga_scale,f_auto,fl_progressive,h_420,q_auto,w_1000/https://cdn-images-1.medium.com/max/1600/1%2A_Wkc-WkNu6GJAAQ26jXZOg.png" height="22">
 
@@ -102,14 +122,17 @@ Just clone it (with `--recursive`) into a catkin workspace and compile it.
    * [eigenpy](https://github.com/stack-of-tasks/eigenpy)
    * [Boost](https://www.boost.org/)
 2. (optional) Install Crocoddyl's optional dependencies
-   * [OpenMP](https://www.openmp.org/) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for multi-threading support)
-   * [CppADCogen](https://github.com/joaoleal/CppADCodeGen) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for code-generation support)
-   * [Ipopt](https://github.com/coin-or/Ipopt) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for Ipopt support)
-   * [example-robot-data](https://github.com/gepetto/example-robot-data) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for robotic examples, install Python loaders)
-   * [gepetto-viewer-corba](https://github.com/Gepetto/gepetto-viewer-corba) &nbsp;&nbsp;(for display)
-   * [meshcat-python](https://github.com/rdeits/meshcat-python) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for display)
-   * [jupyter](https://jupyter.org/) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for notebooks)
-   * [matplotlib](https://matplotlib.org/) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for plotting)
+   * [OpenMP](https://www.openmp.org/) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for multi-threading support)
+   * [CppADCogen](https://github.com/joaoleal/CppADCodeGen) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for code-generation support)
+   * [Ipopt](https://github.com/coin-or/Ipopt) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for Ipopt support)
+   * [example-robot-data](https://github.com/gepetto/example-robot-data) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for robotic examples, install Python loaders)
+   * [gepetto-viewer-corba](https://github.com/Gepetto/gepetto-viewer-corba) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for display in Gepetto viewer, i.e., `GepettoDisplay`)
+   * [meshcat-python](https://github.com/rdeits/meshcat-python) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for display in Meshcat, i.e., `MeshcatDisplay`)
+   * [whole_body_state_rviz_plugin](https://github.com/loco-3d/whole_body_state_rviz_plugin) &nbsp;&nbsp;&nbsp;(for display in ROS, i.e., `RvizDisplay`)
+   * [crocoddyl_msgs](https://github.com/RobotMotorIntelligence/crocoddyl_msgs) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for display in ROS, i.e., `RvizDisplay`)
+   * [urdf_parser_py](https://github.com/ros/urdf_parser_py) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for display in ROS, i.e., `RvizDisplay`)
+   * [jupyter](https://jupyter.org/) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for notebooks)
+   * [matplotlib](https://matplotlib.org/) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(for plotting)
 3. Clone it (with --recursive), create a build directory inside, and:
    ```bash
    cmake .. && make && make install

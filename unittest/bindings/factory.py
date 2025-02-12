@@ -1,5 +1,3 @@
-# flake8: noqa: E203
-# ref. https://github.com/PyCQA/pycodestyle/issues/373, remove this for ruff
 import warnings
 
 import numpy as np
@@ -40,7 +38,8 @@ class StateVectorDerived(crocoddyl.StateAbstract):
         return np.matrix(np.zeros(self.nx)).T
 
     def rand(self):
-        return np.matrix(np.random.rand(self.nx)).T
+        rng = np.random.default_rng()
+        return np.matrix(rng.random(self.nx)).T
 
     def diff(self, x0, x1):
         return x1 - x0
@@ -198,34 +197,34 @@ class UnicycleModelDerived(crocoddyl.ActionModelAbstract):
 
     def calc(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        v, w = u
-        px, py, theta = x
-        c, s, dt = np.cos(theta), np.sin(theta), self.dt
-        # Rollout the dynamics
-        data.xnext[0] = px + c * v * dt
-        data.xnext[1] = py + s * v * dt
-        data.xnext[2] = theta + w * dt
-        # Compute the cost value
-        data.r[:3] = self.costWeights[0] * x
-        data.r[3:] = self.costWeights[1] * u
-        data.cost = 0.5 * sum(data.r**2)
+            data.xnext[:] = x
+            data.r[:3] = self.costWeights[0] * x
+            data.cost = 0.5 * sum(data.r**2)
+        else:
+            v, w = u
+            px, py, theta = x
+            c, s, dt = np.cos(theta), np.sin(theta), self.dt
+            data.xnext[0] = px + c * v * dt
+            data.xnext[1] = py + s * v * dt
+            data.xnext[2] = theta + w * dt
+            data.r[:3] = self.costWeights[0] * x
+            data.r[3:] = self.costWeights[1] * u
+            data.cost = 0.5 * sum(data.r**2)
 
     def calcDiff(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        v = u[0]
-        theta = x[2]
-        # Cost derivatives
-        data.Lx[:] = x * ([self.costWeights[0] ** 2] * self.state.nx)
-        data.Lu[:] = u * ([self.costWeights[1] ** 2] * self.nu)
-        # Dynamic derivatives
-        c, s, dt = np.cos(theta), np.sin(theta), self.dt
-        data.Fx[0, 2] = -s * v * dt
-        data.Fx[1, 2] = c * v * dt
-        data.Fu[0, 0] = c * dt
-        data.Fu[1, 0] = s * dt
-        data.Fu[2, 1] = dt
+            data.Lx[:] = x * ([self.costWeights[0] ** 2] * self.state.nx)
+        else:
+            v = u[0]
+            theta = x[2]
+            data.Lx[:] = x * ([self.costWeights[0] ** 2] * self.state.nx)
+            c, s, dt = np.cos(theta), np.sin(theta), self.dt
+            data.Fx[0, 2] = -s * v * dt
+            data.Fx[1, 2] = c * v * dt
+            data.Fu[0, 0] = c * dt
+            data.Fu[1, 0] = s * dt
+            data.Fu[2, 1] = dt
+            data.Lu[:] = u * ([self.costWeights[1] ** 2] * self.nu)
 
     def createData(self):
         data = UnicycleDataDerived(self)
@@ -246,30 +245,46 @@ class UnicycleDataDerived(crocoddyl.ActionDataAbstract):
 class LQRModelDerived(crocoddyl.ActionModelAbstract):
     def __init__(self, nx, nu, driftFree=True):
         crocoddyl.ActionModelAbstract.__init__(self, crocoddyl.StateVector(nx), nu)
+        self.A = np.eye(self.state.nx)
+        self.B = np.eye(self.state.nx)[:, : self.nu]
+        self.Q = np.eye(self.state.nx)
+        self.R = np.eye(self.nu)
+        self.N = np.zeros((self.state.nx, self.nu))
+        self.f = [np.zeros(self.state.nx) if driftFree else np.ones(self.state.nx)]
+        self.q = np.ones(self.state.nx)
+        self.r = np.ones(self.nu)
 
-        self.Fx = np.eye(self.state.nx)
-        self.Fu = np.eye(self.state.nx)[:, : self.nu]
-        self.f0 = np.zeros(self.state.nx)
-        self.Lxx = np.eye(self.state.nx)
-        self.Lxu = np.eye(self.state.nx)[:, : self.nu]
-        self.Luu = np.eye(self.nu)
-        self.lx = np.ones(self.state.nx)
-        self.lu = np.ones(self.nu)
+    @classmethod
+    def fromLQR(cls, A, B, Q, R, N, f, q, r):
+        model = cls(A.shape[1], B.shape[1], False)
+        model.A = A
+        model.B = B
+        model.Q = Q
+        model.R = R
+        model.N = N
+        model.f = f
+        model.q = q
+        model.r = r
+        return model
 
     def calc(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        data.xnext[:] = np.dot(self.Fx, x) + np.dot(self.Fu, u) + self.f0
-        data.cost = 0.5 * np.dot(x.T, np.dot(self.Lxx, x))
-        data.cost += 0.5 * np.dot(u.T, np.dot(self.Luu, u))
-        data.cost += np.dot(x.T, np.dot(self.Lxu, u))
-        data.cost += np.dot(self.lx.T, x) + np.dot(self.lu.T, u)
+            data.xnext[:] = x
+            data.cost = 0.5 * np.dot(x.T, np.dot(self.Q, x))
+            data.cost += np.dot(self.q.T, x)
+        else:
+            data.xnext[:] = np.dot(self.A, x) + np.dot(self.B, u) + self.f
+            data.cost = 0.5 * np.dot(x.T, np.dot(self.Q, x))
+            data.cost += 0.5 * np.dot(u.T, np.dot(self.R, u))
+            data.cost += np.dot(x.T, np.dot(self.N, u))
+            data.cost += np.dot(self.q.T, x) + np.dot(self.r.T, u)
 
     def calcDiff(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        data.Lx[:] = self.lx + np.dot(self.Lxx, x) + np.dot(self.Lxu, u)
-        data.Lu[:] = self.lu + np.dot(self.Lxu.T, x) + np.dot(self.Luu, u)
+            data.Lx[:] = self.q + np.dot(self.Q, x)
+        else:
+            data.Lx[:] = self.q + np.dot(self.Q, x) + np.dot(self.N, u)
+            data.Lu[:] = self.r + np.dot(self.R, u) + np.dot(self.N.T, x)
 
     def createData(self):
         data = LQRDataDerived(self)
@@ -279,11 +294,11 @@ class LQRModelDerived(crocoddyl.ActionModelAbstract):
 class LQRDataDerived(crocoddyl.ActionDataAbstract):
     def __init__(self, model):
         crocoddyl.ActionDataAbstract.__init__(self, model)
-        self.Fx[:, :] = model.Fx
-        self.Fu[:, :] = model.Fu
-        self.Lxx[:, :] = model.Lxx
-        self.Luu[:, :] = model.Luu
-        self.Lxu[:, :] = model.Lxu
+        self.Fx[:, :] = model.A
+        self.Fu[:, :] = model.B
+        self.Lxx[:, :] = model.Q
+        self.Luu[:, :] = model.R
+        self.Lxu[:, :] = model.N
 
 
 class DifferentialLQRModelDerived(crocoddyl.DifferentialActionModelAbstract):
@@ -291,34 +306,50 @@ class DifferentialLQRModelDerived(crocoddyl.DifferentialActionModelAbstract):
         crocoddyl.DifferentialActionModelAbstract.__init__(
             self, crocoddyl.StateVector(2 * nq), nu
         )
+        self.Aq = np.eye(self.state.nq)
+        self.Av = np.eye(self.state.nv)
+        self.B = np.eye(self.state.nq)[:, : self.nu]
+        self.f = [np.zeros(nq) if driftFree else np.ones(nq)]
+        self.Q = np.eye(self.state.nx)
+        self.R = np.eye(self.nu)
+        self.N = np.zeros((self.state.nx, self.nu))
+        self.q = np.ones(self.state.nx)
+        self.r = np.ones(self.nu)
 
-        self.Fq = np.eye(self.state.nq)
-        self.Fv = np.eye(self.state.nv)
-        self.Fu = np.eye(self.state.nq)[:, : self.nu]
-        self.f0 = np.zeros(self.state.nq)
-        self.Lxx = np.eye(self.state.nx)
-        self.Lxu = np.eye(self.state.nx)[:, : self.nu]
-        self.Luu = np.eye(self.nu)
-        self.lx = np.ones(self.state.nx)
-        self.lu = np.ones(self.nu)
+    @classmethod
+    def fromLQR(cls, Aq, Av, B, Q, R, N, f, q, r):
+        model = cls(Aq.shape[1], B.shape[1], False)
+        model.Aq = Aq
+        model.Av = Av
+        model.B = B
+        model.Q = Q
+        model.R = R
+        model.N = N
+        model.f = f
+        model.q = q
+        model.r = r
+        return model
 
     def calc(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        q, v = x[: self.state.nq], x[self.state.nq :]
-        data.xout[:] = (
-            np.dot(self.Fq, q) + np.dot(self.Fv, v) + np.dot(self.Fu, u) + self.f0
-        )
-        data.cost = 0.5 * np.dot(x.T, np.dot(self.Lxx, x))
-        data.cost += 0.5 * np.dot(u.T, np.dot(self.Luu, u))
-        data.cost += np.dot(x.T, np.dot(self.Lxu, u))
-        data.cost += np.dot(self.lx.T, x) + np.dot(self.lu.T, u)
+            data.cost = 0.5 * np.dot(x.T, np.dot(self.Q, x))
+            data.cost += np.dot(self.q.T, x)
+        else:
+            q, v = x[: self.state.nq], x[self.state.nq :]
+            data.xout[:] = (
+                np.dot(self.Aq, q) + np.dot(self.Av, v) + np.dot(self.B, u) + self.f
+            )
+            data.cost = 0.5 * np.dot(x.T, np.dot(self.Q, x))
+            data.cost += 0.5 * np.dot(u.T, np.dot(self.R, u))
+            data.cost += np.dot(x.T, np.dot(self.N, u))
+            data.cost += np.dot(self.q.T, x) + np.dot(self.r.T, u)
 
     def calcDiff(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        data.Lx[:] = self.lx + np.dot(self.Lxx, x) + np.dot(self.Lxu, u)
-        data.Lu[:] = self.lu + np.dot(self.Lxu.T, x) + np.dot(self.Luu, u)
+            data.Lx[:] = self.q + np.dot(self.Q, x)
+        else:
+            data.Lx[:] = self.q + np.dot(self.Q, x) + np.dot(self.N, u)
+            data.Lu[:] = self.r + np.dot(self.R, u) + np.dot(self.N.T, x)
 
     def createData(self):
         data = DifferentialLQRDataDerived(self)
@@ -328,11 +359,11 @@ class DifferentialLQRModelDerived(crocoddyl.DifferentialActionModelAbstract):
 class DifferentialLQRDataDerived(crocoddyl.DifferentialActionDataAbstract):
     def __init__(self, model):
         crocoddyl.DifferentialActionDataAbstract.__init__(self, model)
-        self.Lxx[:, :] = model.Lxx
-        self.Luu[:, :] = model.Luu
-        self.Lxu[:, :] = model.Lxu
-        self.Fx[:, :] = np.hstack([model.Fq, model.Fv])
-        self.Fu[:, :] = model.Fu
+        self.Fx[:, :] = np.hstack([model.Aq, model.Av])
+        self.Fu[:, :] = model.B
+        self.Lxx[:, :] = model.Q
+        self.Luu[:, :] = model.R
+        self.Lxu[:, :] = model.N
 
 
 class DifferentialFreeFwdDynamicsModelDerived(
@@ -349,61 +380,66 @@ class DifferentialFreeFwdDynamicsModelDerived(
 
     def calc(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        q, v = x[: self.state.nq], x[-self.state.nv :]
-        self.actuation.calc(data.actuation, x, u)
-        tau = data.actuation.tau
-        # Computing the dynamics using ABA or manually for armature case
-        if self.enable_force:
-            data.xout[:] = pinocchio.aba(
-                self.state.pinocchio, data.pinocchio, q, v, tau
-            )
-        else:
+            q, v = x[: self.state.nq], x[-self.state.nv :]
             pinocchio.computeAllTerms(self.state.pinocchio, data.pinocchio, q, v)
-            data.M = data.pinocchio.M
-            if self.armature.size == self.state.nv:
-                data.M[range(self.state.nv), range(self.state.nv)] += self.armature
-            data.Minv = np.linalg.inv(data.M)
-            data.xout[:] = np.dot(data.Minv, (tau - data.pinocchio.nle))
-        # Computing the cost value and residuals
-        pinocchio.forwardKinematics(self.state.pinocchio, data.pinocchio, q, v)
-        pinocchio.updateFramePlacements(self.state.pinocchio, data.pinocchio)
-        self.costs.calc(data.costs, x, u)
-        data.cost = data.costs.cost
+            self.costs.calc(data.costs, x)
+            data.cost = data.costs.cost
+        else:
+            q, v = x[: self.state.nq], x[-self.state.nv :]
+            self.actuation.calc(data.actuation, x, u)
+            tau = data.actuation.tau
+            # Computing the dynamics using ABA or manually for armature case
+            if self.enable_force:
+                data.xout[:] = pinocchio.aba(
+                    self.state.pinocchio, data.pinocchio, q, v, tau
+                )
+            else:
+                pinocchio.computeAllTerms(self.state.pinocchio, data.pinocchio, q, v)
+                data.M = data.pinocchio.M
+                if self.armature.size == self.state.nv:
+                    data.M[range(self.state.nv), range(self.state.nv)] += self.armature
+                data.Minv = np.linalg.inv(data.M)
+                data.xout[:] = np.dot(data.Minv, (tau - data.pinocchio.nle))
+            # Computing the cost value and residuals
+            pinocchio.forwardKinematics(self.state.pinocchio, data.pinocchio, q, v)
+            pinocchio.updateFramePlacements(self.state.pinocchio, data.pinocchio)
+            self.costs.calc(data.costs, x, u)
+            data.cost = data.costs.cost
 
     def calcDiff(self, data, x, u=None):
         if u is None:
-            u = self.unone
-        nq, nv = self.state.nq, self.state.nv
-        q, v = x[:nq], x[-nv:]
-        # Computing the actuation derivatives
-        self.actuation.calcDiff(data.actuation, x, u)
-        tau = data.actuation.tau
-        # Computing the dynamics derivatives
-        if self.enable_force:
-            pinocchio.computeABADerivatives(
-                self.state.pinocchio, data.pinocchio, q, v, tau
-            )
-            ddq_dq = data.pinocchio.ddq_dq
-            ddq_dv = data.pinocchio.ddq_dv
-            data.Fx[:, :] = np.hstack([ddq_dq, ddq_dv]) + np.dot(
-                data.pinocchio.Minv, data.actuation.dtau_dx
-            )
-            data.Fu[:, :] = np.dot(data.pinocchio.Minv, data.actuation.dtau_du)
+            self.costs.calcDiff(data.costs, x)
         else:
-            pinocchio.computeRNEADerivatives(
-                self.state.pinocchio, data.pinocchio, q, v, data.xout
-            )
-            ddq_dq = np.dot(
-                data.Minv, (data.actuation.dtau_dx[:, :nv] - data.pinocchio.dtau_dq)
-            )
-            ddq_dv = np.dot(
-                data.Minv, (data.actuation.dtau_dx[:, nv:] - data.pinocchio.dtau_dv)
-            )
-            data.Fx[:, :] = np.hstack([ddq_dq, ddq_dv])
-            data.Fu[:, :] = np.dot(data.Minv, data.actuation.dtau_du)
-        # Computing the cost derivatives
-        self.costs.calcDiff(data.costs, x, u)
+            nq, nv = self.state.nq, self.state.nv
+            q, v = x[:nq], x[-nv:]
+            # Computing the actuation derivatives
+            self.actuation.calcDiff(data.actuation, x, u)
+            tau = data.actuation.tau
+            # Computing the dynamics derivatives
+            if self.enable_force:
+                pinocchio.computeABADerivatives(
+                    self.state.pinocchio, data.pinocchio, q, v, tau
+                )
+                ddq_dq = data.pinocchio.ddq_dq
+                ddq_dv = data.pinocchio.ddq_dv
+                data.Fx[:, :] = np.hstack([ddq_dq, ddq_dv]) + np.dot(
+                    data.pinocchio.Minv, data.actuation.dtau_dx
+                )
+                data.Fu[:, :] = np.dot(data.pinocchio.Minv, data.actuation.dtau_du)
+            else:
+                pinocchio.computeRNEADerivatives(
+                    self.state.pinocchio, data.pinocchio, q, v, data.xout
+                )
+                ddq_dq = np.dot(
+                    data.Minv, (data.actuation.dtau_dx[:, :nv] - data.pinocchio.dtau_dq)
+                )
+                ddq_dv = np.dot(
+                    data.Minv, (data.actuation.dtau_dx[:, nv:] - data.pinocchio.dtau_dv)
+                )
+                data.Fx[:, :] = np.hstack([ddq_dq, ddq_dv])
+                data.Fu[:, :] = np.dot(data.Minv, data.actuation.dtau_du)
+            # Computing the cost derivatives
+            self.costs.calcDiff(data.costs, x, u)
 
     def createData(self):
         data = DifferentialFreeFwdDynamicsDataDerived(self)
@@ -438,44 +474,41 @@ class IntegratedActionModelEulerDerived(crocoddyl.ActionModelAbstract):
         self.timeStep = timeStep
 
     def calc(self, data, x, u=None):
-        nq, dt = self.state.nq, self.timeStep
-        self.differential.calc(data.differential, x, u)
-        acc = data.differential.xout
-        if self.withCostResiduals:
-            data.r = data.differential.r
         if u is None:
+            self.differential.calc(data.differential, x)
+            data.dx[:] *= 0.0
+            data.xnext[:] = x
             data.cost = data.differential.cost
         else:
+            nq, dt = self.state.nq, self.timeStep
+            self.differential.calc(data.differential, x, u)
+            acc = data.differential.xout
+            if self.withCostResiduals:
+                data.r = data.differential.r
             data.cost = dt * data.differential.cost
-        # data.xnext[nq:] = x[nq:] + acc*dt
-        # data.xnext[:nq] = pinocchio.integrate(
-        # self.differential.pinocchio, a2m(x[:nq]), a2m(data.xnext[nq:] * dt)
-        # ).flat
-        data.dx = np.concatenate([x[nq:] * dt + acc * dt**2, acc * dt])
-        data.xnext[:] = self.differential.state.integrate(x, data.dx)
-
-        return data.xnext, data.cost
+            data.dx[:] = np.concatenate([x[nq:] * dt + acc * dt**2, acc * dt])
+            data.xnext[:] = self.differential.state.integrate(x, data.dx)
 
     def calcDiff(self, data, x, u=None):
-        nv, dt = self.state.nv, self.timeStep
-        self.differential.calcDiff(data.differential, x, u)
-        dxnext_dx, dxnext_ddx = self.state.Jintegrate(x, data.dx)
-        da_dx, da_du = data.differential.Fx, data.differential.Fu
-        ddx_dx = np.vstack([da_dx * dt, da_dx])
-        ddx_dx[range(nv), range(nv, 2 * nv)] += 1
-        data.Fx[:, :] = dxnext_dx + dt * np.dot(dxnext_ddx, ddx_dx)
-        ddx_du = np.vstack([da_du * dt, da_du])
-        if self.nu == 1:
-            data.Fu[:] = (dt * np.dot(dxnext_ddx, ddx_du)).reshape(self.state.nx)
-        else:
-            data.Fu[:, :] = dt * np.dot(dxnext_ddx, ddx_du)
         if u is None:
+            self.differential.calcDiff(data.differential, x)
+            dxnext_dx, _ = self.state.Jintegrate(x, data.dx)
+            data.Fx[:, :] = dxnext_dx
             data.Lx[:] = data.differential.Lx
-            data.Lu[:] = data.differential.Lu
-            data.Lxx[:, :] = data.differential.Lxx
-            data.Lxu[:, :] = data.differential.Lxu
-            data.Luu[:, :] = data.differential.Luu
+            data.Lxx[:] = data.differential.Lxx
         else:
+            nv, dt = self.state.nv, self.timeStep
+            self.differential.calcDiff(data.differential, x, u)
+            dxnext_dx, dxnext_ddx = self.state.Jintegrate(x, data.dx)
+            da_dx, da_du = data.differential.Fx, data.differential.Fu
+            ddx_dx = np.vstack([da_dx * dt, da_dx])
+            ddx_dx[range(nv), range(nv, 2 * nv)] += 1
+            data.Fx[:, :] = dxnext_dx + dt * np.dot(dxnext_ddx, ddx_dx)
+            ddx_du = np.vstack([da_du * dt, da_du])
+            if self.nu == 1:
+                data.Fu[:] = (dt * np.dot(dxnext_ddx, ddx_du)).reshape(self.state.nx)
+            else:
+                data.Fu[:, :] = dt * np.dot(dxnext_ddx, ddx_du)
             data.Lx[:] = data.differential.Lx * dt
             data.Lu[:] = data.differential.Lu * dt
             data.Lxx[:, :] = data.differential.Lxx * dt
@@ -491,6 +524,7 @@ class IntegratedActionDataEulerDerived(crocoddyl.ActionDataAbstract):
     def __init__(self, model):
         crocoddyl.ActionDataAbstract.__init__(self, model)
         self.differential = model.differential.createData()
+        self.dx = np.zeros(model.state.ndx)
 
 
 class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
@@ -505,29 +539,32 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
         self.ndx = self.differential.state.ndx
         self.nq = self.differential.state.nq
         self.nv = self.differential.state.nv
-        self.enable_integration = self.timeStep > 0.0
 
     def createData(self):
         return IntegratedActionDataRK4Derived(self)
 
     def calc(self, data, x, u=None):
-        nq, dt = self.nq, self.timeStep
-
-        data.y[0] = x
-        for i in range(3):
-            self.differential.calc(data.differential[i], data.y[i], u)
-            data.acc[i] = data.differential[i].xout
-            data.int[i] = data.differential[i].cost
-            data.ki[i] = np.concatenate([data.y[i][nq:], data.acc[i]])
-            data.y[i + 1] = self.differential.state.integrate(
-                x, data.ki[i] * self.rk4_inc[i] * dt
-            )
-
-        self.differential.calc(data.differential[3], data.y[3], u)
-        data.acc[3] = data.differential[3].xout
-        data.int[3] = data.differential[3].cost
-        data.ki[3] = np.concatenate([data.y[3][nq:], data.acc[3]])
-        if self.enable_integration:
+        if u is None:
+            k0_data = data.differential[0]
+            self.differential.calc(k0_data, x)
+            data.dx[:] *= 0.0
+            data.xnext[:] = x
+            data.cost = k0_data.cost
+        else:
+            nq, dt = self.nq, self.timeStep
+            data.y[0] = x
+            for i in range(3):
+                self.differential.calc(data.differential[i], data.y[i], u)
+                data.acc[i] = data.differential[i].xout
+                data.int[i] = data.differential[i].cost
+                data.ki[i] = np.concatenate([data.y[i][nq:], data.acc[i]])
+                data.y[i + 1] = self.differential.state.integrate(
+                    x, data.ki[i] * self.rk4_inc[i] * dt
+                )
+            self.differential.calc(data.differential[3], data.y[3], u)
+            data.acc[3] = data.differential[3].xout
+            data.int[3] = data.differential[3].cost
+            data.ki[3] = np.concatenate([data.y[3][nq:], data.acc[3]])
             data.dx = (
                 (data.ki[0] + 2.0 * data.ki[1] + 2.0 * data.ki[2] + data.ki[3]) * dt / 6
             )
@@ -535,42 +572,33 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
             data.cost = (
                 (data.int[0] + 2 * data.int[1] + 2 * data.int[2] + data.int[3]) * dt / 6
             )
+
+    def calcDiff(self, data, x, u=None):
+        if u is None:
+            k0_data = data.differential[0]
+            self.differential.calcDiff(k0_data, x)
+            data.Lx[:] = k0_data.Lx
+            data.Lxx[:] = k0_data.Lxx
         else:
-            data.dx = np.zeros([self.ndx])
-            data.xnext = x
-            data.cost = data.differential[0].cost
-
-        return data.xnext, data.cost
-
-    def calcDiff(self, data, x, u):
-        ndx, nu, nv, dt = self.ndx, self.nu, self.nv, self.timeStep
-        for i in range(4):
-            self.differential.calcDiff(data.differential[i], data.y[i], u)
-            data.dki_dy[i] = np.bmat(
-                [[np.zeros([nv, nv]), np.identity(nv)], [data.differential[i].Fx]]
-            )
-
-        data.dki_du[0] = np.vstack([np.zeros([nv, nu]), data.differential[0].Fu])
-
-        data.Lx[:] = data.differential[0].Lx
-        data.Lu[:] = data.differential[0].Lu
-
-        data.dy_du[0] = np.zeros((ndx, nu))
-        data.dki_dx[0] = data.dki_dy[0]
-
-        data.dli_dx[0] = data.differential[0].Lx
-        data.dli_du[0] = data.differential[0].Lu
-
-        data.ddli_ddx[0] = data.differential[0].Lxx
-        data.ddli_ddu[0] = data.differential[0].Luu
-        data.ddli_dxdu[0] = data.differential[0].Lxu
-
-        if self.enable_integration:
+            ndx, nu, nv, dt = self.ndx, self.nu, self.nv, self.timeStep
+            for i in range(4):
+                self.differential.calcDiff(data.differential[i], data.y[i], u)
+                data.dki_dy[i] = np.bmat(
+                    [[np.zeros([nv, nv]), np.identity(nv)], [data.differential[i].Fx]]
+                )
+            data.dki_du[0] = np.vstack([np.zeros([nv, nu]), data.differential[0].Fu])
+            data.Lx[:] = data.differential[0].Lx
+            data.Lu[:] = data.differential[0].Lu
+            data.dy_du[0] = np.zeros((ndx, nu))
+            data.dki_dx[0] = data.dki_dy[0]
+            data.dli_dx[0] = data.differential[0].Lx
+            data.dli_du[0] = data.differential[0].Lu
+            data.ddli_ddx[0] = data.differential[0].Lxx
+            data.ddli_ddu[0] = data.differential[0].Luu
+            data.ddli_dxdu[0] = data.differential[0].Lxu
             for i in range(1, 4):
                 c = self.rk4_inc[i - 1] * dt
                 dyi_dx, dyi_ddx = self.state.Jintegrate(x, c * data.ki[i - 1])
-
-                # ---------Finding the derivative wrt u--------------
                 data.dy_du[i] = c * np.dot(dyi_ddx, data.dki_du[i - 1])
                 data.dki_du[i] = np.vstack(
                     [
@@ -579,11 +607,9 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
                         + np.dot(data.differential[i].Fx, data.dy_du[i]),
                     ]
                 )
-
                 data.dli_du[i] = data.differential[i].Lu + np.dot(
                     data.differential[i].Lx, data.dy_du[i]
                 )
-
                 data.Luu_partialx[i] = np.dot(data.differential[i].Lxu.T, data.dy_du[i])
                 data.ddli_ddu[i] = (
                     data.differential[i].Luu
@@ -593,8 +619,6 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
                         data.dy_du[i].T, np.dot(data.differential[i].Lxx, data.dy_du[i])
                     )
                 )
-
-                # ---------Finding the derivative wrt x--------------
                 data.dy_dx[i] = dyi_dx + c * np.dot(dyi_ddx, data.dki_dx[i - 1])
                 data.dki_dx[i] = np.dot(data.dki_dy[i], data.dy_dx[i])
 
@@ -607,7 +631,6 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
                 ) + np.dot(
                     data.dy_dx[i].T, np.dot(data.differential[i].Lxx, data.dy_du[i])
                 )
-
             dxnext_dx, dxnext_ddx = self.state.Jintegrate(x, data.dx)
             ddx_dx = (
                 (
@@ -631,7 +654,6 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
             )
             data.Fx[:] = dxnext_dx + np.dot(dxnext_ddx, ddx_dx)
             data.Fu[:] = np.dot(dxnext_ddx, data.ddx_du)
-
             data.Lx[:] = (
                 (
                     data.dli_dx[0]
@@ -652,7 +674,6 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
                 * dt
                 / 6
             )
-
             data.Lxx[:] = (
                 (
                     data.ddli_ddx[0]
@@ -684,14 +705,6 @@ class IntegratedActionModelRK4Derived(crocoddyl.ActionModelAbstract):
                 / 6
             )
             data.Lux = data.Lxu.T
-        else:
-            data.Fx, _ = self.state.Jintegrate(x, data.dx)
-            data.Fu = np.zeros([self.ndx, self.nu])
-            data.Lu = data.differential[0].Lx
-            data.Lu = data.differential[0].Lu
-            data.Lxx = data.differential[0].Lxx
-            data.Luu = data.differential[0].Luu
-            data.Lxu = data.differential[0].Lxu
 
 
 class IntegratedActionDataRK4Derived(crocoddyl.ActionDataAbstract):
@@ -719,7 +732,7 @@ class IntegratedActionDataRK4Derived(crocoddyl.ActionDataAbstract):
         self.Fu = self.F[:, ndx:]
 
         # Quantities for derivatives
-        self.dx = [np.zeros([ndx])] * 4
+        self.dx = np.zeros([ndx])
         self.y = [np.zeros([nx])] * 4
         self.acc = [np.zeros([nu])] * 4
 
@@ -754,15 +767,22 @@ class StateCostModelDerived(crocoddyl.CostModelAbstract):
         else:
             crocoddyl.CostModelAbstract.__init__(self, state, activation, nu)
 
-    def calc(self, data, x, u):
+    def calc(self, data, x, u=None):
         data.residual.r[:] = self.state.diff(self.xref, x)
         self.activation.calc(data.activation, data.residual.r)
         data.cost = data.activation.a_value
 
-    def calcDiff(self, data, x, u):
-        data.residual.Rx[:] = self.state.Jdiff(
-            self.xref, x, crocoddyl.Jcomponent.second
-        )[0]
+    def calcDiff(self, data, x, u=None):
+        # The old code was looking like this.
+        # But, the std::vector<Eigen::MatrixXd> returned by Jdiff is destroyed
+        # before the assignment.
+        # To avoid this issue, we store the std::vector in a variable.
+        # data.residual.Rx[:] = self.state.Jdiff(
+        #     self.xref, x, crocoddyl.Jcomponent.second
+        # )[0]
+
+        diff = self.state.Jdiff(self.xref, x, crocoddyl.Jcomponent.second)
+        data.residual.Rx[:] = diff[0]
         self.activation.calcDiff(data.activation, data.residual.r)
         data.Lx[:] = np.dot(data.residual.Rx.T, data.activation.Ar)
         data.Lxx[:, :] = np.dot(
@@ -779,15 +799,19 @@ class ControlCostModelDerived(crocoddyl.CostModelAbstract):
         self.uref = uref if uref is not None else pinocchio.utils.zero(nu)
         crocoddyl.CostModelAbstract.__init__(self, state, activation, nu)
 
-    def calc(self, data, x, u):
-        data.residual.r[:] = u - self.uref
-        self.activation.calc(data.activation, data.residual.r)
-        data.cost = data.activation.a_value
+    def calc(self, data, x, u=None):
+        if u is None:
+            data.cost = 0.0
+        else:
+            data.residual.r[:] = u - self.uref
+            self.activation.calc(data.activation, data.residual.r)
+            data.cost = data.activation.a_value
 
-    def calcDiff(self, data, x, u):
-        self.activation.calcDiff(data.activation, data.residual.r)
-        data.Lu[:] = data.activation.Ar
-        data.Luu[:, :] = data.activation.Arr
+    def calcDiff(self, data, x, u=None):
+        if u is not None:
+            self.activation.calcDiff(data.activation, data.residual.r)
+            data.Lu[:] = data.activation.Ar
+            data.Luu[:, :] = data.activation.Arr
 
 
 class CoMPositionCostModelDerived(crocoddyl.CostModelAbstract):
@@ -801,12 +825,12 @@ class CoMPositionCostModelDerived(crocoddyl.CostModelAbstract):
             crocoddyl.CostModelAbstract.__init__(self, state, activation, nu)
         self.cref = cref
 
-    def calc(self, data, x, u):
+    def calc(self, data, x, u=None):
         data.residual.r[:] = data.shared.pinocchio.com[0] - self.cref
         self.activation.calc(data.activation, data.residual.r)
         data.cost = data.activation.a_value
 
-    def calcDiff(self, data, x, u):
+    def calcDiff(self, data, x, u=None):
         self.activation.calcDiff(data.activation, data.residual.r)
         data.residual.Rx[:] = np.hstack(
             [
@@ -848,13 +872,13 @@ class FramePlacementCostModelDerived(crocoddyl.CostModelAbstract):
         self._frame_id = frame_id
         self._placement = placement
 
-    def calc(self, data, x, u):
+    def calc(self, data, x, u=None):
         data.rMf = self._placement.inverse() * data.shared.pinocchio.oMf[self._frame_id]
         data.residual.r[:] = pinocchio.log(data.rMf).vector
         self.activation.calc(data.activation, data.residual.r)
         data.cost = data.activation.a_value
 
-    def calcDiff(self, data, x, u):
+    def calcDiff(self, data, x, u=None):
         pinocchio.updateFramePlacements(self.state.pinocchio, data.shared.pinocchio)
         data.rJf[:, :] = pinocchio.Jlog6(data.rMf)
         data.fJf[:, :] = pinocchio.getFrameJacobian(
@@ -912,14 +936,14 @@ class FrameTranslationCostModelDerived(crocoddyl.CostModelAbstract):
         self._frame_id = frame_id
         self._translation = translation
 
-    def calc(self, data, x, u):
+    def calc(self, data, x, u=None):
         data.residual.r[:] = (
             data.shared.pinocchio.oMf[self._frame_id].translation - self._translation
         )
         self.activation.calc(data.activation, data.residual.r)
         data.cost = data.activation.a_value
 
-    def calcDiff(self, data, x, u):
+    def calcDiff(self, data, x, u=None):
         pinocchio.updateFramePlacements(self.state.pinocchio, data.shared.pinocchio)
         data.R[:, :] = data.shared.pinocchio.oMf[self._frame_id].rotation
         data.J[:, :] = np.dot(
@@ -974,7 +998,7 @@ class FrameRotationCostModelDerived(crocoddyl.CostModelAbstract):
         self._frame_id = frame_id
         self._rotation = rotation
 
-    def calc(self, data, x, u):
+    def calc(self, data, x, u=None):
         data.rRf[:, :] = np.dot(
             self._rotation.T, data.shared.pinocchio.oMf[self._frame_id].rotation
         )
@@ -982,7 +1006,7 @@ class FrameRotationCostModelDerived(crocoddyl.CostModelAbstract):
         self.activation.calc(data.activation, data.residual.r)
         data.cost = data.activation.a_value
 
-    def calcDiff(self, data, x, u):
+    def calcDiff(self, data, x, u=None):
         pinocchio.updateFramePlacements(self.state.pinocchio, data.shared.pinocchio)
         data.rJf[:, :] = pinocchio.Jlog3(data.rRf)
         data.fJf[:, :] = pinocchio.getFrameJacobian(
@@ -1037,7 +1061,7 @@ class FrameVelocityCostModelDerived(crocoddyl.CostModelAbstract):
         self._frame_id = frame_id
         self._velocity = velocity
 
-    def calc(self, data, x, u):
+    def calc(self, data, x, u=None):
         data.residual.r[:] = (
             pinocchio.getFrameVelocity(
                 self.state.pinocchio,
@@ -1050,14 +1074,13 @@ class FrameVelocityCostModelDerived(crocoddyl.CostModelAbstract):
         self.activation.calc(data.activation, data.residual.r)
         data.cost = data.activation.a_value
 
-    def calcDiff(self, data, x, u):
+    def calcDiff(self, data, x, u=None):
         v_partial_dq, v_partial_dv = pinocchio.getJointVelocityDerivatives(
             self.state.pinocchio,
             data.shared.pinocchio,
             data.joint,
             pinocchio.ReferenceFrame.LOCAL,
         )
-
         self.activation.calcDiff(data.activation, data.residual.r)
         data.residual.Rx[:] = np.hstack(
             [np.dot(data.fXj, v_partial_dq), np.dot(data.fXj, v_partial_dv)]
@@ -1078,7 +1101,10 @@ class FrameVelocityCostDataDerived(crocoddyl.CostDataAbstract):
         self.fXj = (
             model.state.pinocchio.frames[model._frame_id].placement.inverse().action
         )
-        self.joint = model.state.pinocchio.frames[model._frame_id].parent
+        if tuple(int(i) for i in pinocchio.__version__.split(".")) >= (3, 0, 0):
+            self.joint = model.state.pinocchio.frames[model._frame_id].parentJoint
+        else:
+            self.joint = model.state.pinocchio.frames[model._frame_id].parent
 
 
 class Contact1DModelDerived(crocoddyl.ContactModelAbstract):
@@ -1128,7 +1154,10 @@ class Contact1DModelDerived(crocoddyl.ContactModelAbstract):
             data.a0[0] = np.dot(np.dot(self.Raxis, oRf), data.a0_local)[2]
 
     def calcDiff(self, data, x):
-        joint = self.state.pinocchio.frames[self.id].parent
+        if tuple(int(i) for i in pinocchio.__version__.split(".")) >= (3, 0, 0):
+            joint = self.state.pinocchio.frames[self.id].parentJoint
+        else:
+            joint = self.state.pinocchio.frames[self.id].parent
         (
             v_partial_dq,
             a_partial_dq,
@@ -1248,7 +1277,10 @@ class Contact3DModelDerived(crocoddyl.ContactModelAbstract):
             data.a0[:] = np.dot(oRf, data.a0_local)
 
     def calcDiff(self, data, x):
-        joint = self.state.pinocchio.frames[self.id].parent
+        if tuple(int(i) for i in pinocchio.__version__.split(".")) >= (3, 0, 0):
+            joint = self.state.pinocchio.frames[self.id].parentJoint
+        else:
+            joint = self.state.pinocchio.frames[self.id].parent
         (
             v_partial_dq,
             a_partial_dq,
@@ -1402,7 +1434,10 @@ class Contact6DModelDerived(crocoddyl.ContactModelAbstract):
             data.a0[:] = data.lwaMl.act(data.a0_local).vector
 
     def calcDiff(self, data, x):
-        joint = self.state.pinocchio.frames[self.id].parent
+        if tuple(int(i) for i in pinocchio.__version__.split(".")) >= (3, 0, 0):
+            joint = self.state.pinocchio.frames[self.id].parentJoint
+        else:
+            joint = self.state.pinocchio.frames[self.id].parent
         (
             v_partial_dq,
             a_partial_dq,
@@ -1513,7 +1548,10 @@ class Impulse3DModelDerived(crocoddyl.ImpulseModelAbstract):
             )
 
     def calcDiff(self, data, x):
-        joint = self.state.pinocchio.frames[self.id].parent
+        if tuple(int(i) for i in pinocchio.__version__.split(".")) >= (3, 0, 0):
+            joint = self.state.pinocchio.frames[self.id].parentJoint
+        else:
+            joint = self.state.pinocchio.frames[self.id].parent
         v_partial_dq, _ = pinocchio.getJointVelocityDerivatives(
             self.state.pinocchio, data.pinocchio, joint, pinocchio.ReferenceFrame.LOCAL
         )
@@ -1590,7 +1628,10 @@ class Impulse6DModelDerived(crocoddyl.ImpulseModelAbstract):
             data.Jc[:, :] = np.dot(data.lwaMl.toActionMatrix(), data.fJf)
 
     def calcDiff(self, data, x):
-        joint = self.state.pinocchio.frames[self.id].parent
+        if tuple(int(i) for i in pinocchio.__version__.split(".")) >= (3, 0, 0):
+            joint = self.state.pinocchio.frames[self.id].parentJoint
+        else:
+            joint = self.state.pinocchio.frames[self.id].parent
         v_partial_dq, _ = pinocchio.getJointVelocityDerivatives(
             self.state.pinocchio, data.pinocchio, joint, pinocchio.ReferenceFrame.LOCAL
         )

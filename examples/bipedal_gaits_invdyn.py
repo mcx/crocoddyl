@@ -34,8 +34,17 @@ GAITPHASES = [
             "stepLength": 0.6,
             "stepHeight": 0.1,
             "timeStep": 0.03,
-            "stepKnots": 35,
-            "supportKnots": 10,
+            "stepKnots": 15,
+            "supportKnots": 4,
+        }
+    },
+    {
+        "jumping": {
+            "jumpHeight": 0.1,
+            "jumpLength": [0.0, 0.3, 0.0],
+            "timeStep": 0.03,
+            "groundKnots": 9,
+            "flyingKnots": 6,
         }
     },
     {
@@ -43,26 +52,8 @@ GAITPHASES = [
             "stepLength": 0.6,
             "stepHeight": 0.1,
             "timeStep": 0.03,
-            "stepKnots": 35,
-            "supportKnots": 10,
-        }
-    },
-    {
-        "walking": {
-            "stepLength": 0.6,
-            "stepHeight": 0.1,
-            "timeStep": 0.03,
-            "stepKnots": 35,
-            "supportKnots": 10,
-        }
-    },
-    {
-        "walking": {
-            "stepLength": 0.6,
-            "stepHeight": 0.1,
-            "timeStep": 0.03,
-            "stepKnots": 35,
-            "supportKnots": 10,
+            "stepKnots": 15,
+            "supportKnots": 2,
         }
     },
 ]
@@ -82,7 +73,19 @@ for i, phase in enumerate(GAITPHASES):
                     value["supportKnots"],
                 )
             )
-            solver[i].th_stop = 1e-7
+        elif key == "jumping":
+            # Creating a jumping problem
+            solver[i] = crocoddyl.SolverIntro(
+                gait.createJumpingProblem(
+                    x0,
+                    value["jumpHeight"],
+                    value["jumpLength"],
+                    value["timeStep"],
+                    value["groundKnots"],
+                    value["flyingKnots"],
+                )
+            )
+        solver[i].th_stop = 1e-7
 
     # Added the callback functions
     print("*** SOLVE " + key + " ***")
@@ -111,11 +114,9 @@ if WITHDISPLAY:
 
         gepetto.corbaserver.Client()
         cameraTF = [3.0, 3.68, 0.84, 0.2, 0.62, 0.72, 0.22]
-        display = crocoddyl.GepettoDisplay(
-            talos_legs, 4, 4, cameraTF, frameNames=[rightFoot, leftFoot]
-        )
+        display = crocoddyl.GepettoDisplay(talos_legs, 4, 4, cameraTF)
     except Exception:
-        display = crocoddyl.MeshcatDisplay(talos_legs, frameNames=[rightFoot, leftFoot])
+        display = crocoddyl.MeshcatDisplay(talos_legs)
     display.rate = -1
     display.freq = 1
     while True:
@@ -128,7 +129,7 @@ if WITHPLOT:
     plotSolution(solver, bounds=False, figIndex=1, show=False)
 
     for i, phase in enumerate(GAITPHASES):
-        title = list(phase.keys())[0] + " (phase " + str(i) + ")"
+        title = next(iter(phase.keys())) + " (phase " + str(i) + ")"
         log = solver[i].getCallbacks()[1]
         crocoddyl.plotConvergence(
             log.costs,

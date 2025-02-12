@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BSD 3-Clause License
 //
-// Copyright (C) 2019-2023, LAAS-CNRS, University of Edinburgh,
+// Copyright (C) 2019-2024, LAAS-CNRS, University of Edinburgh,
 //                          Heriot-Watt University
 // Copyright note valid unless otherwise stated in individual files.
 // All rights reserved.
@@ -22,47 +22,64 @@ class ActionModelAbstract_wrap : public ActionModelAbstract,
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   using ActionModelAbstract::ng_;
+  using ActionModelAbstract::ng_T_;
   using ActionModelAbstract::nh_;
+  using ActionModelAbstract::nh_T_;
   using ActionModelAbstract::nu_;
+  using ActionModelAbstract::unone_;
 
   ActionModelAbstract_wrap(boost::shared_ptr<StateAbstract> state,
                            const std::size_t nu, const std::size_t nr = 1,
-                           const std::size_t ng = 0, const std::size_t nh = 0)
-      : ActionModelAbstract(state, nu, nr, ng, nh),
-        bp::wrapper<ActionModelAbstract>() {}
+                           const std::size_t ng = 0, const std::size_t nh = 0,
+                           const std::size_t ng_T = 0,
+                           const std::size_t nh_T = 0)
+      : ActionModelAbstract(state, nu, nr, ng, nh, ng_T, nh_T),
+        bp::wrapper<ActionModelAbstract>() {
+    unone_ = NAN * MathBase::VectorXs::Ones(nu);
+  }
 
   void calc(const boost::shared_ptr<ActionDataAbstract>& data,
             const Eigen::Ref<const Eigen::VectorXd>& x,
             const Eigen::Ref<const Eigen::VectorXd>& u) {
     if (static_cast<std::size_t>(x.size()) != state_->get_nx()) {
-      throw_pretty("Invalid argument: "
-                   << "x has wrong dimension (it should be " +
-                          std::to_string(state_->get_nx()) + ")");
+      throw_pretty(
+          "Invalid argument: " << "x has wrong dimension (it should be " +
+                                      std::to_string(state_->get_nx()) + ")");
     }
     if (static_cast<std::size_t>(u.size()) != nu_) {
-      throw_pretty("Invalid argument: "
-                   << "u has wrong dimension (it should be " +
-                          std::to_string(nu_) + ")");
+      throw_pretty(
+          "Invalid argument: " << "u has wrong dimension (it should be " +
+                                      std::to_string(nu_) + ")");
     }
-    return bp::call<void>(this->get_override("calc").ptr(), data,
-                          (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    if (std::isnan(u.lpNorm<Eigen::Infinity>())) {
+      return bp::call<void>(this->get_override("calc").ptr(), data,
+                            (Eigen::VectorXd)x);
+    } else {
+      return bp::call<void>(this->get_override("calc").ptr(), data,
+                            (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    }
   }
 
   void calcDiff(const boost::shared_ptr<ActionDataAbstract>& data,
                 const Eigen::Ref<const Eigen::VectorXd>& x,
                 const Eigen::Ref<const Eigen::VectorXd>& u) {
     if (static_cast<std::size_t>(x.size()) != state_->get_nx()) {
-      throw_pretty("Invalid argument: "
-                   << "x has wrong dimension (it should be " +
-                          std::to_string(state_->get_nx()) + ")");
+      throw_pretty(
+          "Invalid argument: " << "x has wrong dimension (it should be " +
+                                      std::to_string(state_->get_nx()) + ")");
     }
     if (static_cast<std::size_t>(u.size()) != nu_) {
-      throw_pretty("Invalid argument: "
-                   << "u has wrong dimension (it should be " +
-                          std::to_string(nu_) + ")");
+      throw_pretty(
+          "Invalid argument: " << "u has wrong dimension (it should be " +
+                                      std::to_string(nu_) + ")");
     }
-    return bp::call<void>(this->get_override("calcDiff").ptr(), data,
-                          (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    if (std::isnan(u.lpNorm<Eigen::Infinity>())) {
+      return bp::call<void>(this->get_override("calcDiff").ptr(), data,
+                            (Eigen::VectorXd)x);
+    } else {
+      return bp::call<void>(this->get_override("calcDiff").ptr(), data,
+                            (Eigen::VectorXd)x, (Eigen::VectorXd)u);
+    }
   }
 
   boost::shared_ptr<ActionDataAbstract> createData() {
@@ -86,9 +103,9 @@ class ActionModelAbstract_wrap : public ActionModelAbstract,
       u = bp::call<Eigen::VectorXd>(quasiStatic.ptr(), data, (Eigen::VectorXd)x,
                                     maxiter, tol);
       if (static_cast<std::size_t>(u.size()) != nu_) {
-        throw_pretty("Invalid argument: "
-                     << "u has wrong dimension (it should be " +
-                            std::to_string(nu_) + ")");
+        throw_pretty(
+            "Invalid argument: " << "u has wrong dimension (it should be " +
+                                        std::to_string(nu_) + ")");
       }
       return;
     }

@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BSD 3-Clause License
 //
-// Copyright (C) 2021-2022, LAAS-CNRS, University of Edinburgh,
+// Copyright (C) 2021-2024, LAAS-CNRS, University of Edinburgh,
 //                          University of Oxford, University of Trento,
 //                          Heriot-Watt University
 // Copyright note valid unless otherwise stated in individual files.
@@ -103,6 +103,16 @@ class IntegratedActionModelAbstractTpl
   virtual std::size_t get_nh() const;
 
   /**
+   * @brief Return the number of inequality terminal constraints
+   */
+  virtual std::size_t get_ng_T() const;
+
+  /**
+   * @brief Return the number of equality terminal constraints
+   */
+  virtual std::size_t get_nh_T() const;
+
+  /**
    * @brief Return the lower bound of the inequality constraints
    */
   virtual const VectorXs& get_g_lb() const;
@@ -148,7 +158,6 @@ class IntegratedActionModelAbstractTpl
   using Base::state_;               //!< Model of the state
   using Base::u_lb_;                //!< Lower control limits
   using Base::u_ub_;                //!< Upper control limits
-  using Base::unone_;               //!< Neutral state
 
   void init();
 

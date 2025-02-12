@@ -46,7 +46,7 @@ class SquashingModelSmoothSatTpl : public SquashingModelAbstractTpl<_Scalar> {
     a_ = d_.array() * d_.array();
   }
 
-  virtual ~SquashingModelSmoothSatTpl(){};
+  virtual ~SquashingModelSmoothSatTpl() {};
 
   virtual void calc(const boost::shared_ptr<SquashingDataAbstract>& data,
                     const Eigen::Ref<const VectorXs>& s) {
@@ -76,8 +76,7 @@ class SquashingModelSmoothSatTpl : public SquashingModelAbstractTpl<_Scalar> {
   const Scalar get_smooth() const { return smooth_; };
   void set_smooth(const Scalar smooth) {
     if (smooth < 0.) {
-      throw_pretty("Invalid argument: "
-                   << "Smooth value has to be positive");
+      throw_pretty("Invalid argument: " << "Smooth value has to be positive");
     }
     smooth_ = smooth;
 

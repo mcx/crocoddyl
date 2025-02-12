@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // BSD 3-Clause License
 //
-// Copyright (C) 2021-2022, Heriot-Watt University, University of Edinburgh
+// Copyright (C) 2021-2024, Heriot-Watt University, University of Edinburgh
 // Copyright note valid unless otherwise stated in individual files.
 // All rights reserved.
 ///////////////////////////////////////////////////////////////////////////////
@@ -186,6 +186,16 @@ class DifferentialActionModelContactInvDynamicsTpl
    * @brief Return the number of equality constraints
    */
   virtual std::size_t get_nh() const;
+
+  /**
+   * @brief Return the number of equality terminal constraints
+   */
+  virtual std::size_t get_ng_T() const;
+
+  /**
+   * @brief Return the number of equality terminal constraints
+   */
+  virtual std::size_t get_nh_T() const;
 
   /**
    * @brief Return the lower bound of the inequality constraints
@@ -512,7 +522,6 @@ class DifferentialActionModelContactInvDynamicsTpl
     using Base::nr_;
     using Base::nu_;
     using Base::state_;
-    using Base::unone_;
 
    private:
     pinocchio::FrameIndex id_;  //!< Reference frame id
